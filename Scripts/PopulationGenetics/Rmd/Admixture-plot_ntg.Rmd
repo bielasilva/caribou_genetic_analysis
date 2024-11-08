@@ -1,0 +1,101 @@
+---
+title: "Plotting Admixture Data"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+editor_options: 
+    chunk_output_type: inline
+---
+
+## Load libraries
+```{r}
+library(adegenet)
+library(ggplot2)
+library(tidyverse)
+library(ggpubr)
+
+knitr::opts_chunk$set(fig.path = "plots_LD/", dev = c("png", "svg"), dpi=400, cache=T)
+```
+
+## Import files
+```{r import, cache=T}
+labels.df <- read.csv("/mmfs1/scratch/CaribouProject/labels.csv")[1:121,-1]
+```
+
+## Plot Best K
+```{r best-k, fig.height = 5, fig.width = 20, fig.align = "center", cache=T}
+
+K1File <- "/mmfs1/scratch/CaribouProject/run/PopulationGenetics/Admixture/logs/Admixture.ntg_K-1012434.out"
+K2File <- "/mmfs1/scratch/CaribouProject/run/PopulationGenetics/Admixture/logs/Admixture.ntg_K-1012435.out"
+K3File <- "/mmfs1/scratch/CaribouProject/run/PopulationGenetics/Admixture/logs/Admixture.ntg_K-1012436.out"
+K4File <- "/mmfs1/scratch/CaribouProject/run/PopulationGenetics/Admixture/logs/Admixture.ntg_K-1012437.out"
+K5File <- "/mmfs1/scratch/CaribouProject/run/PopulationGenetics/Admixture/logs/Admixture.ntg_K-1012438.out"
+
+cv.values <- c()
+
+cv.value <- grep('CV',readLines(K1File),  value = TRUE) %>% str_split(.,": ", ) %>% last() %>% last()
+cv.values <- append(cv.values, cv.value)
+
+cv.value <- grep('CV',readLines(K2File),  value = TRUE) %>% str_split(.,": ", ) %>% last() %>% last()
+cv.values <- append(cv.values, cv.value)
+
+cv.value <- grep('CV',readLines(K3File),  value = TRUE) %>% str_split(.,": ", ) %>% last() %>% last()
+cv.values <- append(cv.values, cv.value)
+
+cv.value <- grep('CV',readLines(K4File),  value = TRUE) %>% str_split(.,": ", ) %>% last() %>% last()
+cv.values <- append(cv.values, cv.value)
+
+cv.value <- grep('CV',readLines(K5File),  value = TRUE) %>% str_split(.,": ", ) %>% last() %>% last()
+cv.values <- append(cv.values, cv.value)
+
+cv.df <- data.frame(K = seq(1, 5), CV = cv.values)
+
+ggplot(cv.df, aes(x=K, y=CV)) +
+  geom_point()
+```
+
+## K Loop
+```{r, fig.height = 5, fig.width = 20, fig.align = "center", eval = FALSE}
+for (k in seq(1, 5)) {
+  k.table <- read.table(paste0("Caribou.ntg.", k, ".Q"))
+barplot(t(as.matrix(k.table)), names.arg=labels.df[,2], col=funky(10), main=paste0("Filter 100% | Bootstrap 1000 | K=",k),
+        xlab="Individuals", ylab="Ancestry", space=0, las=2)
+}
+
+```
+
+# K loop - ggplot
+```{r ggplot, fig.height = 10, fig.width = 40, fig.align = "center", cache=T}
+basePath <- "/mmfs1/scratch/CaribouProject/analysis/admixture/ntg/"
+
+for (k in seq(1, 5)) {
+data.df <- cbind(labels.df, read.table(paste0(basePath,"Caribou.ntg.", k, ".Q"))) %>%  
+  pivot_longer(cols=starts_with("V"),names_to="K", values_to="value") %>% group_by(Pop)
+
+plt <- data.df %>%
+  ggplot(aes(fill=K, y=value, x=Label)) +
+  geom_bar(position="stack", stat="identity") +
+  scale_fill_manual(values=funky(10)) +
+  facet_grid(~factor(Pop, levels=c("West","Central","East")), scale = "free_x", space = "free_x") +
+  theme_light() +
+  theme(strip.text = element_text(size = 40, color = "white"),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.title.x = element_text(size = 30),
+        axis.title.y = element_text(size = 30),
+        plot.title = element_text(size = 50, hjust = 0.5),
+        panel.background = element_blank(),
+        panel.grid.major  = element_blank(),
+        panel.grid.minor  = element_blank(),
+        legend.position = "none") +
+  labs(title=paste0("Admixture No Togiak | K=",k),
+        x ="Individuals", y = "Ancestry")
+
+
+print(plt)
+}
+```
+

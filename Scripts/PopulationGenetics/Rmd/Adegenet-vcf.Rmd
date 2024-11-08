@@ -1,0 +1,350 @@
+---
+title: "Adegenet From VCF"
+output:
+  html_document:
+    df_print: paged
+---
+
+## Load libraries and set working directory
+```{r load-libs, message=FALSE, warning=FALSE}
+library(adegenet)
+library(adegraphics)
+library(vcfR)
+library(pegas)
+library(hierfstat)
+library(ggplot2)
+library(viridis)
+library(tidyverse)
+
+knitr::opts_chunk$set(fig.path = "plots_LD/", dev = c("png", "svg"), dpi=500, cache=T)
+```
+
+
+## Import data and define working object
+```{r import-data, message=FALSE, warning=FALSE, results=FALSE, cache=TRUE}
+
+# Import data
+
+vcfFile <- "/mmfs1/scratch/CaribouProject/data/vcf/Caribou.filtered.vcf"
+allPop.vcf <- read.vcf(vcfFile, to=30000)
+
+# Transform vcf to genind
+allPop.genind <- loci2genind(allPop.vcf)
+
+# Import population ID
+popID.df <- read.csv("/mmfs1/scratch/CaribouProject/labels.csv", header = T)[,-1]
+
+#popID.df[popID.df == "Togiak"] <- 'Outgroup'
+allPop.genind@pop <- as.factor(popID.df[,2])
+
+# Subset without Togiak
+noTog.genind <- allPop.genind[pop=c("West", "Central", "East", "Unk")]
+
+# Copy genind object
+brucellosis.genind <- allPop.genind
+
+# Redefine populations based on Brucellosis status
+brucellosis.genind@pop <- as.factor(popID.df[,3])
+```
+
+## Start analysis
+
+### 	Bartlett test of homogeneity of variances
+```{r bartlett-test, cache=TRUE}
+allPop.summary <- summary(allPop.genind)
+
+bartlett.test(list(allPop.summary$Hexp,allPop.summary$Hobs))
+t.test(allPop.summary$Hexp, allPop.summary$Hobs,pair=T,var.equal=TRUE,alter="greater")
+
+```
+
+### F-stats 
+#### Test of Hardy–Weinberg Equilibrium
+```{r hwt, message=FALSE, warning=FALSE, cache=TRUE}
+allPop.hwt <- hw.test(allPop.genind, B=0)
+colMeans(allPop.hwt)
+```
+
+##### No Togiak
+```{r hwt-ntg, message=FALSE, warning=FALSE, cache=TRUE}
+noTog.hwt <- hw.test(noTog.genind, B=0)
+colMeans(noTog.hwt)
+```
+
+#### General Fst & Fis 
+```{r fstats, cache=TRUE}
+allPop.fstats <- wc(allPop.genind)
+print(paste("FIS:", allPop.fstats$FIS))
+print(paste("FST:", allPop.fstats$FST))
+
+## == ##
+allPop.basics <- basic.stats(allPop.genind)
+allPop.basics$overall
+```
+
+##### No Togiak
+```{r fstats-ntg}
+noTog.fstats <- wc(noTog.genind)
+print(paste("FIS:", noTog.fstats$FIS))
+print(paste("FST:", noTog.fstats$FST))
+
+## == ##
+noTog.basics <- basic.stats(noTog.genind)
+noTog.basics$overall
+```
+
+#### Bootstraps
+```{r bootstraps, cache=TRUE}
+betas(allPop.genind, nboot=102, lim=c(0.025,0.975), diploid=TRUE, betaijT=FALSE)
+betas(noTog.genind, nboot=102, lim=c(0.025,0.975), diploid=TRUE, betaijT=FALSE)
+```
+
+
+#### General Confidence Interval
+
+```{r general-cv, cache=TRUE}
+nc <- genind2hierfstat(allPop.genind)
+allPop.CV <- boot.vc(nc[1], nc[-1])$ci
+
+print(allPop.CV)
+```
+
+##### No Togiak
+```{r general-cv-ntg, cache=TRUE}
+nc <- genind2hierfstat(noTog.genind)
+noTog.CV <- boot.vc(nc[1], nc[-1])$ci
+
+print(noTog.CV)
+```
+
+
+```{r general-cv-sub, cache=TRUE, eval=FALSE}
+ncs <- genind2hierfstat(subPop.genind)
+#subPop.CV <- boot.ppfis(nc[1], nc[-1])$ci
+subPop.CI <- boot.ppfis(dat=ncs,nboot=100,quant=c(0.025,0.975),diploid=TRUE,dig=4)
+print(subPop.CI)
+```
+
+##### Per population
+```{r fis-pop, cache=TRUE}
+for (pop in unique(popID.df[,2])) {
+  print(pop)
+  
+  subPop.genind <- allPop.genind[pop=c(pop)]
+  subPop.fstats <- wc(subPop.genind)
+  
+  print(paste("FIS:", subPop.fstats$FIS))
+}
+```
+
+### Pairwise Fst
+```{r pairwise-fst, cache=TRUE}
+matFst <- genet.dist(allPop.genind, method = "Nei87")
+
+matFst %>% 
+  as.matrix() %>% 
+  as_tibble(rownames = "A") %>% pivot_longer(-A, names_to = "B", values_to = "distance") %>% 
+  mutate(distance = na_if(distance, 0),
+         A = factor(A, levels = c("West", "Central", "East", "Outgroup")),
+         B = factor(B, levels = c("West", "Central", "East", "Outgroup"))) %>% 
+  ggplot(aes(x=A, y=B, fill=distance)) +
+  geom_tile() + scale_fill_gradient(low = "#e86100", high = "#92bbff") +
+  geom_text(aes(label = round(distance, 4))) +
+  labs(x = "Population") +
+  theme(axis.title.y = element_blank(), legend.position = "right")
+```
+### Inbreeding
+
+```{r inbreeding, message=FALSE, warning=FALSE, cache=TRUE}
+allPop.inbr <- inbreeding(allPop.genind, N = 100)
+
+allPop.FIS <- sapply(allPop.inbr, mean)
+
+hist(allPop.FIS, col="orange", xlab="mean value of F",
+     main="Distribution of mean F across individuals")
+
+#No Togiak
+noTog.inbr <- inbreeding(noTog.genind, N = 100)
+
+noTog.FIS <- sapply(noTog.inbr, mean)
+
+hist(noTog.FIS, col="blue", xlab="mean value of F",
+     main="Distribution of mean F across individuals")
+
+```
+
+### PCA
+#### All pop
+```{r pca-allpop, cache=TRUE}
+# Transform genind object
+allPop.gen <- tab(allPop.genind, NA.method = "mean")
+
+# Plot PCA
+allPop.pca <- dudi.pca(allPop.gen, scannf=F, nf=15)
+#screeplot(allPop.pca, npcs=15)
+#summary(allPop.pca)
+
+var.explained.pca <- round(allPop.pca$eig/sum(allPop.pca$eig)*100, digits=1)
+
+## Ellipses are 1.5x intertia for the group
+s.class(allPop.pca$li, xax=1, yax=2, col=funky(7), fac=pop(allPop.genind), 
+        paxes.draw=T, main="PCA MCH + Outgroup", plabels.cex = F,
+        xlab=paste0("PC 1 (", var.explained.pca[1], "%)"), ylab=paste0("PC 2 (", var.explained.pca[2], "%)"))
+```
+
+#### No Togiak
+```{r pac-notog, cache=TRUE}
+# Transform genind object
+noTog.gen <- tab(noTog.genind, NA.method = "mean")
+
+# Plot PCA
+noTog.pca <- dudi.pca(noTog.gen, scannf=F, nf=15)
+#screeplot(allPop.pca, npcs=15)
+#summary(allPop.pca)
+
+var.noTog.pca <- round(noTog.pca$eig/sum(noTog.pca$eig)*100, digits=1)
+
+## Ellipses are 1.5x intertia for the group
+s.class(noTog.pca$li, xax=1, yax=2, col=funky(7), fac=pop(noTog.genind), 
+        paxes.draw=T, main="PCA MCH", plabels.cex = F,
+        xlab=paste0("PC 1 (", var.noTog.pca[1], "%)"), ylab=paste0("PC 2 (", var.noTog.pca[2], "%)"))
+```
+
+### PCoA
+#### All pop
+```{r pcoa-allpop, cache=TRUE}
+# Make PCoA object
+allPop.pcoa <- dudi.pco(dist(allPop.genind), scannf=FALSE, nf=15)
+
+# Plot PCoA
+var.explained.pcoa <- round(allPop.pcoa$eig/sum(allPop.pcoa$eig)*100, digits=1)
+
+## Ellipses are 1.5x intertia for the group
+s.class(allPop.pcoa$li, xax=1, yax=2, col=funky(7), fac=pop(allPop.genind),
+        paxes.draw=T, main="PCoA MCH + Outgroup", plabels.cex = F,
+        xlab=paste0("PC 1 (", var.explained.pcoa[1], "%)"), ylab=paste0("PC 2 (", var.explained.pcoa[2], "%)"))
+
+```
+
+```{r, eval=FALSE, cache=TRUE}
+rownames(allPop.pcoa$li)[allPop.pcoa$li$A1 > 30]
+rownames(allPop.pcoa$li)[allPop.pcoa$li$A1 < -50]
+rownames(allPop.pcoa$li)[allPop.pcoa$li$A2 > 50]
+rownames(allPop.pcoa$li)[allPop.pcoa$li$A2 < -7]
+```
+
+#### No Togiak
+```{r pcoa-notog, cache=TRUE}
+
+# Make PCoA object
+noTog.pcoa <- dudi.pco(dist(noTog.genind), scannf=FALSE, nf=15)
+
+# Plot PCoA
+var.noTog.pcoa <- round(noTog.pcoa$eig/sum(noTog.pcoa$eig)*100, digits=1)
+
+## Ellipses are 1.5x intertia for the group
+s.class(noTog.pcoa$li, xax=1, yax=2, col=funky(7), fac=pop(noTog.genind),
+        paxes.draw=T, main="PCoA MCH", plabels.cex = F,
+        xlab=paste0("PC 1 (", var.noTog.pcoa[1], "%)"), ylab=paste0("PC 2 (", var.noTog.pcoa[2], "%)"))
+
+```
+
+```{r, eval=FALSE}
+rownames(noTog.pcoa$li)[noTog.pcoa$li$A1 > 50]
+rownames(noTog.pcoa$li)[noTog.pcoa$li$A1 < -50]
+rownames(noTog.pcoa$li)[noTog.pcoa$li$A2 > 50]
+rownames(noTog.pcoa$li)[noTog.pcoa$li$A2 < -50]
+```
+
+### DAPC
+#### All pop
+```{r dapc-allpop-1}
+# Make DAPC object
+allPop.dapc <- dapc(allPop.genind, allPop.genind$pop, n.pca = 15, n.da = 15)
+
+# Plot DAPC scatter
+scatter(allPop.dapc, legend=TRUE)
+```
+
+
+```{r dapc-allpop-2, fig.height = 5, fig.width = 20, fig.align = "center"}
+# Plot DAPC compoplot
+compoplot(allPop.dapc, posi="bottomright", show.lab = T, lab = allPop.genind$pop)
+```
+
+#### No Togiak
+```{r dapc-notog-1}
+# Make DAPC object
+noTog.dapc <- dapc(noTog.genind, noTog.genind$pop, n.pca = 15, n.da = 15)
+
+# Plot DAPC scatter
+scatter(noTog.dapc, legend=TRUE)
+```
+
+```{r dapc-notog-2, fig.height = 5, fig.width = 20, fig.align = "center"}
+# Plot DAPC compoplot
+compoplot(noTog.dapc, posi="bottomright", show.lab = T, lab = noTog.genind$pop)
+```
+
+## Brucellosis
+
+### Set data
+```{r set-brucellosis, message=FALSE, warning=FALSE, cache=TRUE}
+# Copy genind object
+
+brucellosis.genind <- allPop.genind
+
+# Redefine populations based on Brucellosis status
+brucellosis.genind@pop <- as.factor(popID.df[,3])
+
+# Remove untested individuals
+brucellosis.genind <- brucellosis.genind[pop=c("Neg", "Pos"),]
+```
+
+### Pairwise Heterozygosity test
+```{r brucellosis-pairwise-het, fig.align = "center", cache=TRUE}
+brucellosis.Hs.test <- Hs.test(brucellosis.genind[pop="Neg"],
+                brucellosis.genind[pop="Pos"],
+                n.sim=499)
+
+
+brucellosis.Hs.test
+
+plot(brucellosis.Hs.test,main=paste("p.value = ", round(brucellosis.Hs.test$pvalue, dig = 5)))
+```
+
+### F-stats
+```{r brucellosis-Fstats, fig.align = "center", results="hold", cache=TRUE}
+
+basic <- basic.stats(brucellosis.genind, diploid = TRUE, digits = 2)
+
+mean.Hs <- colMeans(basic$Hs)
+mean.Ho <- colMeans(basic$Ho)
+
+print(paste("Expected Heterozigosity Neg:", round(mean.Hs["Neg"], digits = 5)))
+print(paste("Expected Heterozigosity Pos:", round(mean.Hs["Pos"], digits = 5)))
+print(paste("Observed Heterozigosity Neg:", round(mean.Ho["Neg"], digits = 5)))
+print(paste("Observed Heterozigosity Pos:", round(mean.Ho["Pos"], digits = 5)))
+```
+
+```
+### PCOA
+```{r PCOA-brucellosis, fig.align = "center", cache=TRUE}
+# Make PCoA object
+brucellosis.pcoa <- dudi.pco(dist(brucellosis.genind), scannf=FALSE, nf=15)
+
+# Plot PCoA
+var.brucellosis.pcoa <- round(brucellosis.pcoa$eig/sum(brucellosis.pcoa$eig)*100, digits=1)
+
+## Ellipses are 1.5x intertia for the group
+s.class(brucellosis.pcoa$li, xax=1, yax=2, col=funky(7), fac=pop(brucellosis.genind),
+        paxes.draw=T, main="PCoA Brucellosis", plabels.cex = F,
+        xlab=paste0("PC 1 (", var.brucellosis.pcoa[1], "%)"), ylab=paste0("PC 2 (", var.brucellosis.pcoa[2], "%)"))
+```
+
+
+
+
+
+
+

@@ -1,0 +1,20 @@
+INFO  21-02 18:16:57,414 (PGDSpiderConfig.java:loadConfig:64)  -load PGDSpider configuration from: /mmfs1/home/gas0042/mambaforge/envs/Structure/share/pgdspider-2.1.1.5-1/spider.conf.xml
+DEBUG 21-02 18:16:57,558 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+DEBUG 21-02 18:16:57,571 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+WARN  21-02 18:17:02,925 (StructureWriter.java:parseAlignedSampleData:589)  -Data are converted to integers (A=1, T=2, G=3, C=4)!
+INFO  21-02 18:17:49,837 (PGDSpiderConfig.java:loadConfig:64)  -load PGDSpider configuration from: /mmfs1/home/gas0042/mambaforge/envs/Structure/share/pgdspider-2.1.1.5-1/spider.conf.xml
+DEBUG 21-02 18:17:49,886 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+DEBUG 21-02 18:17:49,900 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+WARN  21-02 18:17:58,154 (StructureWriter.java:parseAlignedSampleData:589)  -Data are converted to integers (A=1, T=2, G=3, C=4)!
+INFO  22-02 13:54:58,348 (PGDSpiderConfig.java:loadConfig:64)  -load PGDSpider configuration from: /mmfs1/home/gas0042/mambaforge/envs/Structure/share/pgdspider-2.1.1.5-1/spider.conf.xml
+DEBUG 22-02 13:54:58,524 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+DEBUG 22-02 13:54:58,551 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+WARN  22-02 13:55:04,431 (StructureWriter.java:parseAlignedSampleData:589)  -Data are converted to integers (A=1, T=2, G=3, C=4)!
+INFO  22-02 13:55:08,723 (PGDSpiderConfig.java:loadConfig:64)  -load PGDSpider configuration from: /mmfs1/home/gas0042/mambaforge/envs/Structure/share/pgdspider-2.1.1.5-1/spider.conf.xml
+DEBUG 22-02 13:55:08,822 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+DEBUG 22-02 13:55:08,834 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+WARN  22-02 13:55:14,457 (StructureWriter.java:parseAlignedSampleData:589)  -Data are converted to integers (A=1, T=2, G=3, C=4)!
+INFO  22-02 14:19:51,312 (PGDSpiderConfig.java:loadConfig:64)  -load PGDSpider configuration from: /mmfs1/home/gas0042/mambaforge/envs/Structure/share/pgdspider-2.1.1.5-1/spider.conf.xml
+DEBUG 22-02 14:19:51,481 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+DEBUG 22-02 14:19:51,503 (ParserFactory.java:getParserInstance:177)  -New VcfParser instance
+WARN  22-02 14:19:56,338 (StructureWriter.java:parseAlignedSampleData:589)  -Data are converted to integers (A=1, T=2, G=3, C=4)!
